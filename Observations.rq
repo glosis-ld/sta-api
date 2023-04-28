@@ -1,0 +1,59 @@
+#+ summary: "Retrieves all the information about GloSiS-LUCAS Observations"
+#+ description: "NOTE: make sure response content type is application/json"
+#+ endpoint: "https://www.foodie-cloud.org/sparql"
+#+ tags:
+#+   - json
+#+ method: GET
+#+ pagination: 100
+#+ endpoint_in_url: False
+#+ transform: {
+#+   "description": "?info",
+#+   "$anchor": "description",
+#+   "@iot.count": "?total",
+#+   "@iot.nextLink": "?next_link",
+#+   "value": {
+#+     "@iot.id": "?id",
+#+     "@iot.selfLink": "?id_link",
+#+     "phenomenonTime": "?phenomenonTime",
+#+     "resultTime": "?resultTime",
+#+     "result": {
+#+        "label": "?item_label",
+#+        "value": "?item_value",
+#+        "unit": "?unit",
+#+     },
+#+     "Datastream@iot.navigationLink": "?datastream_link",
+#+     "FeatureOfInterest@iot.navigationLink": "?feature_link",
+#+   }
+#+ }
+
+PREFIX lucas-api: <https://w3id.org/glosis/lucas/api/>
+PREFIX sosa:  <http://www.w3.org/ns/sosa/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema/>
+PREFIX qudt: <http://qudt.org/schema/qudt/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT DISTINCT ?info ?total ?next_link ?id ?id_link ?phenomenonTime ?resultTime ?item_label ?item_value ?unit ?datastream_link ?feature_link ?result
+FROM <http://w3id.org/glosis/model/>
+FROM <http://w3id.org/glosis/open/LUCAS/topsoildata/>
+WHERE {
+    ?s rdf:type/rdfs:subClassOf* sosa:Observation ;
+      sosa:hasResult ?result ;
+      sosa:resultTime ?resultTime ;
+			sosa:phenomenonTime ?phenomenonTime .
+    OPTIONAL {
+      ?result rdfs:label ?item_label ;
+			  qudt:numericValue ?item_value ;
+        qudt:unit ?unit .
+	  }
+		BIND ("OGC SensorThings API - Observations" as ?info)
+    BIND (REPLACE(STR(?s), "^.*/([^/]*)$", "$1") as ?id)
+    BIND (URI(CONCAT('https://w3id.org/glosis/lucas/api/v1.0/Observations(', ?id,')')) AS ?id_link)
+    BIND (URI(CONCAT('https://w3id.org/glosis/lucas/api/v1.0/Observations(', ?id,')/Datastream')) AS ?datastream_link)
+    BIND (URI(CONCAT('https://w3id.org/glosis/lucas/api/v1.0/Observations(', ?id,')/FeatureOfInterest')) AS ?feature_link)
+    {
+       SELECT (count(*) as ?total) WHERE { ?x rdf:type/rdfs:subClassOf* sosa:Observation }
+    }
+    OPTIONAL { ?s ?p ?_page }
+    BIND (URI(CONCAT('https://w3id.org/glosis/lucas/api/v1.0/Observations?$top=100&$skip=', (xsd:integer(?_page)+1)*100)) AS ?next_link)
+}
+ORDER BY ?id
